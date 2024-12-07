@@ -59,18 +59,36 @@ struct ClientInfo {
     uint32_t client_revision = 0;
 };
 
-std::ostream& operator<<(std::ostream& os, const ClientOptions& opt) {
-    os << "Client(" << opt.user << '@' << opt.host << ":" << opt.port
-       << "Endpoints :";
-    for (size_t i = 0; i < opt.endpoints.size(); i++)
-        os << opt.user << '@' << opt.endpoints[i].host << ":" << opt.endpoints[i].port
-           << ((i == opt.endpoints.size() - 1) ? "" : ", ");
+std::ostream& operator<<(std::ostream& os, const Endpoint& endpoint) {
+    return os << endpoint.host << ":" << endpoint.port;
+}
 
-    os << " ping_before_query:" << opt.ping_before_query
+std::ostream& operator<<(std::ostream& os, const ClientOptions& opt) {
+    os << "Client("
+       << " Endpoints : [";
+    size_t extra_endpoints = 0;
+
+    if (!opt.host.empty()) {
+        extra_endpoints = 1;
+        os << opt.user << '@' << Endpoint{opt.host, opt.port};
+
+        if (opt.endpoints.size())
+            os << ", ";
+    }
+
+    for (size_t i = 0; i < opt.endpoints.size(); i++) {
+        os << opt.user << '@' << opt.endpoints[i]
+           << ((i == opt.endpoints.size() - 1) ? "" : ", ");
+    }
+
+    os << "] (" << opt.endpoints.size() + extra_endpoints << " items )"
+       << " ping_before_query:" << opt.ping_before_query
        << " send_retries:" << opt.send_retries
        << " retry_timeout:" << opt.retry_timeout.count()
        << " compression_method:"
-       << (opt.compression_method == CompressionMethod::LZ4 ? "LZ4" : "None");
+       << (opt.compression_method == CompressionMethod::LZ4    ? "LZ4"
+           : opt.compression_method == CompressionMethod::ZSTD ? "ZSTD"
+                                                               : "None");
 #if defined(WITH_OPENSSL)
     if (opt.ssl_options) {
         const auto & ssl_options = *opt.ssl_options;
@@ -842,9 +860,8 @@ void Client::Impl::SendData(const Block& block) {
     }
 
     if (compression_ == CompressionState::Enable) {
-        assert(options_.compression_method == CompressionMethod::LZ4);
 
-        std::unique_ptr<OutputStream> compressed_output = std::make_unique<CompressedOutput>(output_.get(), options_.max_compression_chunk_size);
+        std::unique_ptr<OutputStream> compressed_output = std::make_unique<CompressedOutput>(output_.get(), options_.max_compression_chunk_size, options_.compression_method);
         BufferedOutput buffered(std::move(compressed_output), options_.max_compression_chunk_size);
 
         WriteBlock(block, buffered);

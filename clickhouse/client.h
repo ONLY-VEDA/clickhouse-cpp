@@ -40,9 +40,10 @@ struct ServerInfo {
 };
 
 /// Methods of block compression.
-enum class CompressionMethod {
-    None    = -1,
-    LZ4     =  1,
+enum class CompressionMethod : int8_t {
+    None = -1,
+    LZ4  = 1,
+    ZSTD = 2,
 };
 
 struct Endpoint {
@@ -220,6 +221,7 @@ struct ClientOptions {
 };
 
 std::ostream& operator<<(std::ostream& os, const ClientOptions& options);
+std::ostream& operator<<(std::ostream& os, const Endpoint& options);
 
 class SocketFactory;
 
